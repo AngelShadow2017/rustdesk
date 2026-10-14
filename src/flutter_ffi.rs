@@ -51,6 +51,8 @@ fn initialize(app_dir: &str, custom_client_config: &str) {
     } else {
         crate::read_custom_client(custom_client_config);
     }
+    #[cfg(all(windows, feature = "direct-only"))]
+    crate::direct_only::configure();
     #[cfg(target_os = "android")]
     {
         // flexi_logger can't work when android_logger initialized.

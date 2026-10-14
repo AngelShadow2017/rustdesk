@@ -44,6 +44,10 @@ mod clipboard;
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub mod core_main;
 mod custom_server;
+#[cfg(all(windows, feature = "direct-only"))]
+mod direct_only;
+#[cfg(all(feature = "direct-only", not(windows)))]
+compile_error!("direct-only is a Windows deployment profile");
 mod lang;
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 mod port_forward;

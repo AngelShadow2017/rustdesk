@@ -69,6 +69,14 @@ fn run(sp: EmptyExtraFieldService) -> ResultType<()> {
     let (tx_cb_result, rx_cb_result) = channel();
     let ctx = Some(ClipboardContext::new().map_err(|e| io::Error::new(io::ErrorKind::Other, e))?);
     clipboard_listener::subscribe(sp.name(), tx_cb_result)?;
+    #[cfg(feature = "direct-only")]
+    let _listener_cleanup = crate::SimpleCallOnReturn {
+        b: true,
+        f: Box::new({
+            let name = sp.name();
+            move || clipboard_listener::unsubscribe(&name)
+        }),
+    };
     let mut handler = Handler {
         ctx,
         #[cfg(target_os = "windows")]
@@ -107,6 +115,7 @@ fn run(sp: EmptyExtraFieldService) -> ResultType<()> {
         }
     }
 
+    #[cfg(not(feature = "direct-only"))]
     clipboard_listener::unsubscribe(&sp.name());
 
     Ok(())

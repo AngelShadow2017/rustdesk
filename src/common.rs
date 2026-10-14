@@ -660,6 +660,9 @@ impl Drop for CheckTestNatType {
 }
 
 pub fn test_nat_type() {
+    if cfg!(feature = "direct-only") {
+        return;
+    }
     test_ipv6_sync();
     use std::sync::atomic::{AtomicBool, Ordering};
     std::thread::spawn(move || {
@@ -844,6 +847,9 @@ async fn test_rendezvous_server_() {
 }
 
 pub fn test_rendezvous_server() {
+    if cfg!(feature = "direct-only") {
+        return;
+    }
     std::thread::spawn(test_rendezvous_server_);
 }
 
@@ -1018,6 +1024,9 @@ pub fn is_modifier(evt: &KeyEvent) -> bool {
 }
 
 pub fn check_software_update() {
+    if cfg!(feature = "direct-only") {
+        return;
+    }
     if is_custom_client() {
         return;
     }
@@ -1031,6 +1040,9 @@ pub fn check_software_update() {
 // Because the url is always `https://api.rustdesk.com/version/latest`.
 #[tokio::main(flavor = "current_thread")]
 pub async fn do_check_software_update() -> hbb_common::ResultType<()> {
+    if cfg!(feature = "direct-only") {
+        bail!("Updates are disabled in the direct-only build");
+    }
     let (request, url) =
         hbb_common::version_check_request(hbb_common::VER_TYPE_RUSTDESK_CLIENT.to_string());
     let proxy_conf = Config::get_socks();
@@ -1124,6 +1136,9 @@ pub fn get_custom_rendezvous_server(custom: String) -> String {
 
 #[inline]
 pub fn get_api_server(api: String, custom: String) -> String {
+    if cfg!(feature = "direct-only") {
+        return String::new();
+    }
     if Config::no_register_device() {
         return "".to_owned();
     }
@@ -3809,5 +3824,26 @@ mod tests {
     #[tokio::test]
     async fn test_ipv6_route_probe_does_not_wait_on_the_network() {
         assert!(hbb_common::timeout(1_000, test_bind_ipv6()).await.is_ok());
+    }
+}
+
+#[cfg(all(test, feature = "direct-only"))]
+mod direct_only_tests {
+    use super::{do_check_software_update, get_api_server};
+
+    #[test]
+    fn direct_only_has_no_api_target_even_with_custom_settings() {
+        for (api, custom) in [
+            ("", ""),
+            ("", "127.0.0.1"),
+            ("https://example.invalid", "rs-ny.rustdesk.com"),
+        ] {
+            assert!(get_api_server(api.to_owned(), custom.to_owned()).is_empty());
+        }
+    }
+
+    #[test]
+    fn direct_only_rejects_a_forced_update_check() {
+        assert!(do_check_software_update().is_err());
     }
 }

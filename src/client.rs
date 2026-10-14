@@ -376,6 +376,9 @@ impl Client {
         (i32, String),
     )> {
         debug_assert!(peer == interface.get_id());
+        if cfg!(feature = "direct-only") {
+            bail!("This build accepts incoming direct connections only");
+        }
         interface.update_direct(None);
         interface.update_received(false);
         match Self::_start(peer, key, token, conn_type, interface.clone()).await {

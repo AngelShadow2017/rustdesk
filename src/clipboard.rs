@@ -60,13 +60,19 @@ fn valid_rgba_dimensions(width: i32, height: i32, data_len: usize) -> Option<(us
 #[cfg(not(target_os = "android"))]
 const SUPPORTED_FORMATS: &[ClipboardFormat] = &[
     ClipboardFormat::Text,
+    #[cfg(not(feature = "direct-only"))]
     ClipboardFormat::Html,
+    #[cfg(not(feature = "direct-only"))]
     ClipboardFormat::Rtf,
+    #[cfg(not(feature = "direct-only"))]
     ClipboardFormat::ImageRgba,
+    #[cfg(not(feature = "direct-only"))]
     ClipboardFormat::ImagePng,
+    #[cfg(not(feature = "direct-only"))]
     ClipboardFormat::ImageSvg,
     #[cfg(feature = "unix-file-copy-paste")]
     ClipboardFormat::FileUrl,
+    #[cfg(not(feature = "direct-only"))]
     ClipboardFormat::Special(CLIPBOARD_FORMAT_EXCEL_XML_SPREADSHEET),
     ClipboardFormat::Special(RUSTDESK_CLIPBOARD_OWNER_FORMAT),
 ];
@@ -248,6 +254,13 @@ pub fn check_clipboard_cm() -> ResultType<MultiClipboards> {
 
 #[cfg(not(target_os = "android"))]
 fn update_clipboard_(multi_clipboards: Vec<Clipboard>, side: ClipboardSide) {
+    #[cfg(feature = "direct-only")]
+    let multi_clipboards = multi_clipboards
+        .into_iter()
+        .filter(|clipboard| {
+            clipboard.format.enum_value() == Ok(base::message_proto::ClipboardFormat::Text)
+        })
+        .collect();
     let to_update_data = proto::from_multi_clipboards(multi_clipboards);
     if to_update_data.is_empty() {
         return;
@@ -449,6 +462,17 @@ impl ClipboardContext {
 
     fn set(&mut self, data: &[ClipboardData]) -> ResultType<()> {
         let _lock = ARBOARD_MTX.lock().unwrap();
+        #[cfg(all(windows, feature = "direct-only"))]
+        {
+            use arboard::SetExtWindows;
+            self.inner
+                .set()
+                .exclude_from_cloud()
+                .exclude_from_history()
+                .formats(data)?;
+            return Ok(());
+        }
+        #[cfg(not(all(windows, feature = "direct-only")))]
         self.inner.set_formats(data)?;
         Ok(())
     }

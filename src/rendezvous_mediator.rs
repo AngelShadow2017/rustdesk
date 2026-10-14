@@ -272,6 +272,11 @@ impl RendezvousMediator {
     }
 
     pub async fn start_all() {
+        if cfg!(feature = "direct-only") {
+            check_zombie();
+            direct_server(new_server()).await;
+            return;
+        }
         crate::test_nat_type();
         if config::is_outgoing_only() {
             loop {
@@ -1387,6 +1392,9 @@ async fn direct_server(server: ServerPtr) {
         }
         if let Some(l) = listener.as_mut() {
             if disabled || port != get_direct_port() {
+                if cfg!(feature = "direct-only") && disabled {
+                    server.write().unwrap().close_connections();
+                }
                 log::info!("Exit direct access listen");
                 listener = None;
                 continue;
