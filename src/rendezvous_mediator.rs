@@ -1369,12 +1369,16 @@ async fn direct_server(server: ServerPtr) {
             match hbb_common::tcp::listen_any(port as _).await {
                 Ok(l) => {
                     listener = Some(l);
+                    #[cfg(all(windows, feature = "direct-only"))]
+                    crate::direct_only::set_listener_state(1);
                     log::info!(
                         "Direct server listening on: {:?}",
                         listener.as_ref().map(|l| l.local_addr())
                     );
                 }
                 Err(err) => {
+                    #[cfg(all(windows, feature = "direct-only"))]
+                    crate::direct_only::set_listener_state(2);
                     // to-do: pass to ui
                     log::error!(
                         "Failed to start direct server on port: {}, error: {}",
@@ -1397,6 +1401,8 @@ async fn direct_server(server: ServerPtr) {
                 }
                 log::info!("Exit direct access listen");
                 listener = None;
+                #[cfg(all(windows, feature = "direct-only"))]
+                crate::direct_only::set_listener_state(3);
                 continue;
             }
             if let Ok(Ok((stream, addr))) = hbb_common::timeout(1000, l.accept()).await {

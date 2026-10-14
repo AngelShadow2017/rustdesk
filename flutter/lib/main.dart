@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common/widgets/overlay.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_tab_page.dart';
+import 'package:flutter_hbb/desktop/pages/direct_host_page.dart';
 import 'package:flutter_hbb/desktop/pages/install_page.dart';
 import 'package:flutter_hbb/desktop/pages/server_page.dart';
 import 'package:flutter_hbb/desktop/screen/desktop_file_transfer_screen.dart';
@@ -133,6 +134,26 @@ Future<void> initEnv(String appType) async {
 void runMainApp(bool startService) async {
   // register uni links
   await initEnv(kAppTypeMain);
+  if (isDirectHost) {
+    await bind.mainCheckConnectStatus();
+    if (startService) gFFI.serverModel.startService();
+    runApp(App());
+    windowManager.waitUntilReadyToShow(
+        const WindowOptions(
+          size: Size(440, 580),
+          minimumSize: Size(420, 540),
+          center: true,
+          backgroundColor: Color(0xFFF5F6F8),
+          titleBarStyle: TitleBarStyle.normal,
+        ), () async {
+      await windowManager.setTitle(bind.mainGetAppNameSync());
+      await windowManager.setResizable(true);
+      await windowManager.setOpacity(1);
+      await windowManager.show();
+      await windowManager.focus();
+    });
+    return;
+  }
   checkUpdate();
   // trigger connection status updater
   await bind.mainCheckConnectStatus();
@@ -502,7 +523,7 @@ class _AppState extends State<App> with WidgetsBindingObserver {
           darkTheme: MyTheme.darkTheme,
           themeMode: MyTheme.currentThemeMode(),
           home: isDesktop
-              ? const DesktopTabPage()
+              ? (isDirectHost ? const DirectHostPage() : const DesktopTabPage())
               : isWeb
                   ? WebHomePage()
                   : HomePage(),

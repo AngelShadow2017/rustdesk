@@ -82,8 +82,8 @@ void ForceChildRefresh(HWND child) {
 
 }  // namespace
 
-FlutterWindow::FlutterWindow(const flutter::DartProject& project)
-    : project_(project) {}
+FlutterWindow::FlutterWindow(const flutter::DartProject& project, bool direct_host)
+    : project_(project), direct_host_(direct_host) {}
 
 FlutterWindow::~FlutterWindow() {}
 
@@ -103,6 +103,9 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
+  if (direct_host_) {
+    direct_tray_ = std::make_unique<DirectHostTray>(GetHandle());
+  }
 
   flutter::MethodChannel<> channel(
     flutter_controller_->engine()->messenger(),
@@ -110,7 +113,16 @@ bool FlutterWindow::OnCreate() {
     &flutter::StandardMethodCodec::GetInstance());
 
   channel.SetMethodCallHandler(
-    [](const flutter::MethodCall<>& call, std::unique_ptr<flutter::MethodResult<>> result) {
+    [this](const flutter::MethodCall<>& call, std::unique_ptr<flutter::MethodResult<>> result) {
+      if (direct_tray_ && call.method_name() == "directHostExit") {
+        result->Success();
+        PostMessageW(GetHandle(), DirectHostTray::kExitMessage, 0, 0);
+        return;
+      }
+      if (direct_tray_ && call.method_name() == "directHostTrayReady") {
+        result->Success(direct_tray_->ready());
+        return;
+      }
       if (call.method_name() == "bumpMouse") {
         auto arguments = call.arguments();
 
@@ -165,6 +177,7 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  direct_tray_.reset();
   KillTimer(GetHandle(), kForceRedrawTimerId);
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
@@ -177,6 +190,11 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
+  if (direct_tray_) {
+    if (auto result = direct_tray_->Handle(message, wparam, lparam)) {
+      return *result;
+    }
+  }
   // Give Flutter, including plugins, an opportunity to handle window messages.
   if (flutter_controller_) {
     std::optional<LRESULT> result =

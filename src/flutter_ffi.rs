@@ -2679,6 +2679,10 @@ pub fn main_get_printer_names() -> SyncReturn<String> {
 }
 
 pub fn main_get_common(key: String) -> String {
+    #[cfg(all(windows, feature = "direct-only"))]
+    if key == "direct-only-status" {
+        return crate::direct_only::status();
+    }
     if key == "is-printer-installed" {
         #[cfg(target_os = "windows")]
         {

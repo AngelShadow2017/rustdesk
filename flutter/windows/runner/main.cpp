@@ -150,7 +150,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   command_line_arguments.insert(command_line_arguments.end(), rust_args.begin(), rust_args.end());
   project.set_dart_entrypoint_arguments(std::move(command_line_arguments));
 
-  FlutterWindow window(project);
+  FlutterWindow window(project, DirectHostTray::IsEnabled() && !is_cm_page && !is_install_page);
 
   // Get primary monitor's work area.
   Win32Window::Point workarea_origin(0, 0);

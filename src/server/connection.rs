@@ -5573,6 +5573,11 @@ impl Connection {
         ALIVE_CONNS.lock().unwrap().clone()
     }
 
+    #[cfg(all(windows, feature = "direct-only"))]
+    pub fn direct_only_session_count() -> usize {
+        AUTHED_CONNS.lock().unwrap().len()
+    }
+
     #[cfg(windows)]
     fn portable_check(&mut self) {
         if self.portable.is_installed || !self.is_remote() || !self.keyboard {
