@@ -140,7 +140,7 @@ void runMainApp(bool startService) async {
     runApp(App());
     windowManager.waitUntilReadyToShow(
         const WindowOptions(
-          size: Size(440, 580),
+          size: Size(440, 640),
           minimumSize: Size(420, 540),
           center: true,
           backgroundColor: Color(0xFFF5F6F8),

@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common.dart' show isWindows;
+import 'package:flutter_hbb/desktop/pages/desktop_tab_page.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -25,6 +27,7 @@ class _DirectHostPageState extends State<DirectHostPage> {
   bool _refreshing = false;
   bool _statusFailed = false;
   bool _trayReady = true;
+  bool _advanced = false;
 
   @override
   void initState() {
@@ -40,6 +43,23 @@ class _DirectHostPageState extends State<DirectHostPage> {
       final status =
           jsonDecode(await bind.mainGetCommon(key: 'direct-only-status'))
               as Map<String, dynamic>;
+      final addresses =
+          (status['addresses'] as List).cast<Map<String, dynamic>>();
+      for (final interface
+          in await NetworkInterface.list(type: InternetAddressType.IPv4)) {
+        if (!interface.name.toLowerCase().contains('tailscale')) continue;
+        for (final address in interface.addresses) {
+          final endpoint = '${address.address}:21118';
+          if (!addresses.any((item) => item['address'] == endpoint)) {
+            addresses.add({
+              'name': 'Tailscale',
+              'interface': interface.name,
+              'address': endpoint
+            });
+          }
+        }
+      }
+      status['addresses'] = addresses;
       final trayReady =
           await _hostChannel.invokeMethod<bool>('directHostTrayReady') ?? false;
       if (mounted) {
@@ -71,6 +91,19 @@ class _DirectHostPageState extends State<DirectHostPage> {
     await _refresh();
   }
 
+  Future<void> _switchInterface(bool advanced) async {
+    if (advanced) {
+      await windowManager.setMinimumSize(const Size(800, 600));
+      await windowManager.setSize(const Size(1000, 700));
+      await windowManager.setTitleBarStyle(TitleBarStyle.hidden);
+    } else {
+      await windowManager.setTitleBarStyle(TitleBarStyle.normal);
+      await windowManager.setMinimumSize(const Size(420, 540));
+      await windowManager.setSize(const Size(440, 640));
+    }
+    if (mounted) setState(() => _advanced = advanced);
+  }
+
   Future<void> _background() async {
     if (await _hostChannel.invokeMethod<bool>('directHostTrayReady') == true) {
       await windowManager.hide();
@@ -92,6 +125,27 @@ class _DirectHostPageState extends State<DirectHostPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_advanced) {
+      return Column(children: [
+        SizedBox(
+            height: 38,
+            child: Row(children: [
+              TextButton.icon(
+                onPressed: () => _switchInterface(false),
+                icon: const Icon(Icons.arrow_back, size: 18),
+                label: const Text('返回简洁界面'),
+              ),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: _exit,
+                icon: const Icon(Icons.power_settings_new, size: 18),
+                label: const Text('退出'),
+              ),
+              const SizedBox(width: 12),
+            ])),
+        const Expanded(child: DesktopTabPage()),
+      ]);
+    }
     final passwordSet = _status['password_set'] == true;
     final listener = _status['listener'] as int? ?? 0;
     final sessions = _status['sessions'] as int? ?? 0;
@@ -122,13 +176,19 @@ class _DirectHostPageState extends State<DirectHostPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Row(children: [
-                Icon(Icons.desktop_windows_outlined,
+              Row(children: [
+                const Icon(Icons.desktop_windows_outlined,
                     color: Color(0xFF3267D6), size: 28),
-                SizedBox(width: 12),
-                Text('远程控制',
+                const SizedBox(width: 12),
+                const Text('远程控制',
                     style:
                         TextStyle(fontSize: 23, fontWeight: FontWeight.w600)),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: () => _switchInterface(true),
+                  icon: const Icon(Icons.settings_outlined, size: 17),
+                  label: const Text('完整界面'),
+                ),
               ]),
               const SizedBox(height: 7),
               const Text('从 iPad 或其他设备连接这台电脑',
